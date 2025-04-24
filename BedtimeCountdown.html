@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>倒计时</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+
+        .countdown-card {
+            background-color: transparent;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .countdown-display {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .time-section {
+            display: flex;
+            align-items: center;
+        }
+
+        .time-section span {
+            font-size: 72px; /* 增大约1.5倍 */
+            font-weight: 700;
+            color: #37474f;
+        }
+
+        #hours, #minutes, #seconds {
+            min-width: 120px;
+            padding: 15px 0;
+        }
+
+        .colon {
+            margin: 0 -5px;
+        }
+
+        /* 时间选择器样式 */
+        .time-picker-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .time-picker-content {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .time-columns {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+
+        .time-column {
+            flex: 1;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 0 10px;
+        }
+
+        .time-item {
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .time-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .time-item.selected {
+            background-color: #eceff1;
+            font-weight: bold;
+            color: #37474f;
+        }
+
+        .time-picker-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .time-picker-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .confirm-button {
+            background-color: #37474f;
+            color: white;
+        }
+
+        .confirm-button:hover {
+            background-color: #455a64;
+        }
+
+        .cancel-button {
+            background-color: #f0f0f0;
+            color: #37474f;
+        }
+
+        .cancel-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 500px) {
+            .countdown-card {
+                padding: 20px;
+            }
+
+            .time-section span {
+                font-size: 54px; /* 响应式下也增大 */
+            }
+
+            #hours, #minutes, #seconds {
+                min-width: 90px;
+                padding: 10px 0;
+            }
+
+            .colon {
+                margin: 0 -3px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="countdown-card">
+            <div class="countdown-display" id="countdown-display">
+                <div class="time-section">
+                    <span id="hours">00</span>
+                </div>
+                <div class="time-section">
+                    <span class="colon">:</span>
+                </div>
+                <div class="time-section">
+                    <span id="minutes">00</span>
+                </div>
+                <div class="time-section">
+                    <span class="colon">:</span>
+                </div>
+                <div class="time-section">
+                    <span id="seconds">00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 时间选择器弹窗 -->
+    <div class="time-picker-modal" id="time-picker-modal">
+        <div class="time-picker-content">
+            <div class="time-columns">
+                <div class="time-column" id="hour-column">
+                    <!-- 小时选项将通过JS动态生成 -->
+                </div>
+                <div class="time-column" id="minute-column">
+                    <!-- 分钟选项将通过JS动态生成 -->
+                </div>
+            </div>
+            <div class="time-picker-buttons">
+                <button class="time-picker-button cancel-button" id="cancel-button">取消</button>
+                <button class="time-picker-button confirm-button" id="confirm-button">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 默认目标时间
+        let targetHour = 23;
+        let targetMinute = 0;
+
+        // 时间选择器变量
+        let selectedHour = targetHour;
+        let selectedMinute = targetMinute;
+
+        // DOM 元素
+        let modal, hourColumn, minuteColumn, confirmButton, cancelButton, countdownDisplay;
+
+        // 初始化时间选择器
+        function initTimePicker() {
+            // 生成小时选项 (1-24)
+            for (let i = 1; i <= 24; i++) {
+                const hourItem = document.createElement('div');
+                hourItem.className = 'time-item';
+                hourItem.textContent = i.toString().padStart(2, '0');
+                hourItem.dataset.value = i;
+                hourItem.addEventListener('click', () => selectHour(i));
+                hourColumn.appendChild(hourItem);
+            }
+
+            // 生成分钟选项 (00 和 30)
+            const minuteValues = [0, 30];
+            minuteValues.forEach(min => {
+                const minuteItem = document.createElement('div');
+                minuteItem.className = 'time-item';
+                minuteItem.textContent = min.toString().padStart(2, '0');
+                minuteItem.dataset.value = min;
+                minuteItem.addEventListener('click', () => selectMinute(min));
+                minuteColumn.appendChild(minuteItem);
+            });
+
+            // 设置按钮事件
+            confirmButton.addEventListener('click', confirmTimeSelection);
+            cancelButton.addEventListener('click', closeTimePicker);
+
+            // 点击倒计时显示打开时间选择器
+            countdownDisplay.addEventListener('click', openTimePicker);
+        }
+
+        // 打开时间选择器
+        function openTimePicker() {
+            selectedHour = targetHour;
+            selectedMinute = targetMinute;
+
+            // 重置选中状态
+            updateTimePickerSelection();
+
+            // 显示模态框
+            modal.style.display = 'flex';
+        }
+
+        // 关闭时间选择器
+        function closeTimePicker() {
+            modal.style.display = 'none';
+        }
+
+        // 选择小时
+        function selectHour(hour) {
+            selectedHour = hour;
+            updateTimePickerSelection();
+        }
+
+        // 选择分钟
+        function selectMinute(minute) {
+            selectedMinute = minute;
+            updateTimePickerSelection();
+        }
+
+        // 更新时间选择器的选中状态
+        function updateTimePickerSelection() {
+            // 更新小时选中状态
+            Array.from(hourColumn.children).forEach(item => {
+                if (parseInt(item.dataset.value) === selectedHour) {
+                    item.classList.add('selected');
+                    // 滚动到可见区域
+                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+
+            // 更新分钟选中状态
+            Array.from(minuteColumn.children).forEach(item => {
+                if (parseInt(item.dataset.value) === selectedMinute) {
+                    item.classList.add('selected');
+                    // 滚动到可见区域
+                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+
+        // 确认时间选择
+        function confirmTimeSelection() {
+            targetHour = selectedHour;
+            targetMinute = selectedMinute;
+            saveSettings();
+            closeTimePicker();
+        }
+
+        // 从本地存储加载设置（如果有）
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('bedtimeSettings');
+            if (savedSettings) {
+                try {
+                    const settings = JSON.parse(savedSettings);
+                    targetHour = settings.targetHour || 23;
+                    targetMinute = settings.targetMinute || 0;
+                } catch (e) {
+                    console.error("加载设置时出错:", e);
+                }
+            }
+        }
+
+        // 保存设置
+        function saveSettings() {
+            try {
+                const settings = {
+                    targetHour: targetHour,
+                    targetMinute: targetMinute
+                };
+
+                localStorage.setItem('bedtimeSettings', JSON.stringify(settings));
+            } catch (e) {
+                console.error("保存设置时出错:", e);
+                alert("保存设置失败: " + e.message);
+            }
+        }
+
+        // 更新倒计时
+        function updateCountdown() {
+            const now = new Date();
+
+            // 设置目标时间为今天的目标时间点
+            let targetTime = new Date();
+            targetTime.setHours(targetHour, targetMinute, 0, 0);
+
+            // 如果当前时间已经过了今天的目标时间，则目标时间设为明天的目标时间
+            if (now >= targetTime) {
+                targetTime.setDate(targetTime.getDate() + 1);
+            }
+
+            // 计算剩余时间（毫秒）
+            const timeLeft = targetTime - now;
+
+            // 转换为小时、分钟和秒
+            const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+            // 更新显示
+            document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
+            document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
+
+            // 设置文档标题，只显示倒计时数字
+            document.title = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 页面加载完成后初始化
+        window.onload = function() {
+            // 初始化DOM元素
+            modal = document.getElementById('time-picker-modal');
+            hourColumn = document.getElementById('hour-column');
+            minuteColumn = document.getElementById('minute-column');
+            confirmButton = document.getElementById('confirm-button');
+            cancelButton = document.getElementById('cancel-button');
+            countdownDisplay = document.getElementById('countdown-display');
+
+            // 加载设置
+            loadSettings();
+
+            // 初始化时间选择器
+            initTimePicker();
+
+            // 初始更新
+            updateCountdown();
+
+            // 每秒更新一次
+            setInterval(updateCountdown, 1000);
+        };
+    </script>
+</body>
+</html>
