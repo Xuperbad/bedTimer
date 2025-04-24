@@ -147,6 +147,32 @@
             background-color: #e0e0e0;
         }
 
+        /* 简洁备忘录样式 */
+        .memo-container {
+            margin-top: 50px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        #memo-text {
+            width: 100%;
+            height: 150px;
+            padding: 15px;
+            border: none;
+            background-color: rgba(240, 240, 240, 0.5);
+            font-size: 16px;
+            color: #37474f;
+            resize: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.5;
+            border-radius: 8px;
+        }
+
+        #memo-text:focus {
+            outline: none;
+            background-color: rgba(240, 240, 240, 0.7);
+        }
+
         /* 响应式设计 */
         @media (max-width: 500px) {
             .countdown-card {
@@ -164,6 +190,12 @@
 
             .colon {
                 margin: 0 -12px;
+            }
+
+            #memo-text {
+                height: 120px;
+                font-size: 14px;
+                padding: 10px;
             }
         }
     </style>
@@ -188,6 +220,11 @@
                     <span id="seconds">00</span>
                 </div>
             </div>
+        </div>
+
+        <!-- 极简备忘录 -->
+        <div class="memo-container">
+            <textarea id="memo-text" spellcheck="false"></textarea>
         </div>
     </div>
 
@@ -373,6 +410,28 @@
             document.title = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
+        // 备忘录功能
+        let memoText;
+
+        // 初始化备忘录
+        function initMemo() {
+            memoText = document.getElementById('memo-text');
+
+            // 加载保存的备忘录内容
+            const savedMemo = localStorage.getItem('bedtimeMemo');
+            if (savedMemo) {
+                memoText.value = savedMemo;
+            }
+
+            // 添加事件监听器，自动保存
+            memoText.addEventListener('input', saveMemo);
+        }
+
+        // 保存备忘录内容
+        function saveMemo() {
+            localStorage.setItem('bedtimeMemo', memoText.value);
+        }
+
         // 页面加载完成后初始化
         window.onload = function() {
             // 初始化DOM元素
@@ -388,6 +447,9 @@
 
             // 初始化时间选择器
             initTimePicker();
+
+            // 初始化备忘录
+            initMemo();
 
             // 初始更新
             updateCountdown();
