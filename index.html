@@ -408,6 +408,15 @@
             color: #9e9e9e;
             opacity: 0.7;
             z-index: 1200; /* 增加z-index值，使其高于应用抽屉(900)和编辑弹窗(1100) */
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+        }
+
+        .powered-by:hover {
+            background-color: rgba(240, 240, 240, 0.3);
+            opacity: 1;
         }
 
     /* 响应式设计 */
@@ -731,11 +740,11 @@
             // 添加事件监听器，自动保存
             memoText.addEventListener('input', saveMemo);
 
-            // 添加双击事件，显示同步码
-            memoText.addEventListener('dblclick', showSyncCode);
-
             // 设置定期检查更新的定时器
             syncCheckInterval = setInterval(checkForMemoUpdates, 30000); // 每30秒检查一次
+
+            // 初始化同步码点击事件
+            initSyncCodeClick();
         }
 
         // 保存备忘录内容
@@ -886,10 +895,22 @@
             return remoteUpdatedAt > localDate;
         }
 
-        // 显示同步码
-        function showSyncCode() {
-            const code = getSyncCode();
-            alert(`您的同步码是: ${code}\n\n请记住这个同步码，您可以在其他设备上使用它来同步备忘录内容。`);
+        // 初始化同步码点击事件
+        function initSyncCodeClick() {
+            const poweredBy = document.getElementById('powered-by');
+            if (poweredBy && !poweredBy.hasClickListener) {
+                poweredBy.addEventListener('click', function() {
+                    const newCode = prompt(`当前同步码: ${syncCode}\n\n请输入新的同步码以从其他设备同步备忘录内容:`, syncCode);
+                    if (newCode) {
+                        if (setSyncCode(newCode)) {
+                            alert(`同步码已设置为: ${newCode}\n正在尝试同步...`);
+                        } else {
+                            alert('同步码无效，请重试。');
+                        }
+                    }
+                });
+                poweredBy.hasClickListener = true;
+            }
         }
 
         // 设置同步码（用于在其他设备上输入同步码）
@@ -1697,21 +1718,7 @@
             mainContainer.style.opacity = containerOpacity;
         }
 
-        // 添加键盘快捷键监听
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+Shift+S: 设置同步码
-            if (e.ctrlKey && e.shiftKey && e.key === 'S') {
-                e.preventDefault();
-                const newCode = prompt('请输入同步码以从其他设备同步备忘录内容:');
-                if (newCode) {
-                    if (setSyncCode(newCode)) {
-                        alert(`同步码已设置为: ${newCode}\n正在尝试同步...`);
-                    } else {
-                        alert('同步码无效，请重试。');
-                    }
-                }
-            }
-        });
+
 
         // 声明全局变量
         let supabase;
@@ -1764,14 +1771,14 @@
             const hasShownSyncTip = localStorage.getItem('bedtimeSyncTipShown');
             if (!hasShownSyncTip) {
                 setTimeout(() => {
-                    alert(`您的备忘录现在支持跨设备同步！\n\n您的同步码是: ${getSyncCode()}\n\n请记住这个同步码，您可以在其他设备上使用它来同步备忘录内容。\n\n提示: 双击备忘录区域可以随时查看您的同步码。\n在其他设备上，按Ctrl+Shift+S可以输入同步码。`);
+                    alert(`您的备忘录现在支持跨设备同步！\n\n您的同步码是: ${syncCode}\n\n点击右下角的"Powered by Chao❤️"可以查看和修改同步码。\n\n请记住这个同步码，您可以在其他设备上使用它来同步备忘录内容。`);
                     localStorage.setItem('bedtimeSyncTipShown', 'true');
                 }, 2000);
             }
         };
     </script>
 
-    <!-- Powered by 文本 -->
-    <div class="powered-by">Powered by Chao❤️</div>
+    <!-- 底部信息栏 -->
+    <div class="powered-by" id="powered-by" title="点击修改同步码">Powered by Chao❤️</div>
 </body>
 </html>
