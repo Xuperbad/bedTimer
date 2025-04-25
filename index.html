@@ -196,8 +196,10 @@
             transition: all 0.4s ease;
             z-index: 900;
             overflow-y: auto;
-            padding: 20px;
+            padding: 40px 20px; /* 增加上下内边距 */
             opacity: 0; /* 初始透明 */
+            display: flex;
+            justify-content: center; /* 水平居中 */
         }
 
         .app-drawer-container.active {
@@ -215,26 +217,13 @@
             opacity: 0.3; /* 降低不透明度 */
         }
 
-        .app-drawer-header {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .app-drawer-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            color: #37474f;
-            cursor: pointer;
-        }
-
         .app-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
             gap: 20px;
-            padding: 10px 0;
+            padding: 20px 0;
+            max-width: 800px; /* 限制最大宽度 */
+            width: 100%;
         }
 
         .app-item {
@@ -272,16 +261,11 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            margin-top: 8px; /* 统一间距 */
         }
 
         .add-app-button {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 64px;
-            height: 64px;
             background-color: #e0e0e0;
-            border-radius: 16px;
             font-size: 32px;
             color: #37474f;
             cursor: pointer;
@@ -469,13 +453,10 @@
 
     <!-- 应用桌面抽屉 -->
     <div class="app-drawer-container" id="app-drawer">
-        <div class="app-drawer-header">
-            <button class="app-drawer-close" id="app-drawer-close">×</button>
-        </div>
         <div class="app-grid" id="app-grid">
             <!-- 应用图标将通过JS动态生成 -->
             <div class="app-item" id="add-app">
-                <div class="add-app-button">+</div>
+                <div class="app-icon add-app-button">+</div>
                 <div class="app-name">添加应用</div>
             </div>
         </div>
@@ -723,10 +704,6 @@
             appDrawer = document.getElementById('app-drawer');
             appGrid = document.getElementById('app-grid');
             addAppButton = document.getElementById('add-app');
-
-            // 关闭应用抽屉按钮
-            const closeButton = document.getElementById('app-drawer-close');
-            closeButton.addEventListener('click', closeAppDrawer);
 
             // 添加应用按钮
             addAppButton.addEventListener('click', () => openAppEditModal());
