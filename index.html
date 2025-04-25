@@ -715,8 +715,7 @@
             appGrid = document.getElementById('app-grid');
             addAppButton = document.getElementById('add-app');
 
-            // 添加应用按钮
-            addAppButton.addEventListener('click', () => openAppEditModal());
+            // 不再为整个按钮添加点击事件，只在图标上添加
 
             // 加载保存的应用
             loadApps();
@@ -874,8 +873,11 @@
                 let appTouchStartY = 0;
                 let appTouchMoved = false;
 
-                // 触摸开始
-                appItem.addEventListener('touchstart', (e) => {
+                // 声明长按计时器变量
+                let pressTimer;
+
+                // 触摸开始 - 只在图标上添加事件
+                appIcon.addEventListener('touchstart', (e) => {
                     appTouchStartX = e.touches[0].clientX;
                     appTouchStartY = e.touches[0].clientY;
                     appTouchMoved = false;
@@ -883,13 +885,25 @@
                     // 长按进入编辑模式
                     pressTimer = setTimeout(() => {
                         if (!appTouchMoved && !isGlobalDragging) {
+                            // 震动反馈（如果设备支持）
+                            if (navigator.vibrate) {
+                                navigator.vibrate(50);
+                            }
+
+                            // 添加视觉反馈
+                            appIcon.classList.add('long-press');
+
+                            // 打开编辑模式
                             openAppEditModal(app.id);
                         }
                     }, 800);
-                }, { passive: true });
 
-                // 触摸移动
-                appItem.addEventListener('touchmove', (e) => {
+                    // 阻止事件冒泡
+                    e.stopPropagation();
+                }, { passive: false });
+
+                // 触摸移动 - 只在图标上添加事件
+                appIcon.addEventListener('touchmove', (e) => {
                     const moveX = Math.abs(e.touches[0].clientX - appTouchStartX);
                     const moveY = Math.abs(e.touches[0].clientY - appTouchStartY);
 
@@ -897,18 +911,26 @@
                     if (moveX > 10 || moveY > 10) {
                         appTouchMoved = true;
                         clearTimeout(pressTimer); // 取消长按计时器
+                        appIcon.classList.remove('long-press'); // 移除长按效果
                     }
-                }, { passive: true });
 
-                // 触摸结束
-                appItem.addEventListener('touchend', (e) => {
+                    // 阻止事件冒泡
+                    e.stopPropagation();
+                }, { passive: false });
+
+                // 触摸结束 - 只在图标上添加事件
+                appIcon.addEventListener('touchend', (e) => {
                     clearTimeout(pressTimer); // 取消长按计时器
+                    appIcon.classList.remove('long-press'); // 移除长按效果
 
                     // 只有在没有移动且不是全局拖动状态时才触发点击
                     if (!appTouchMoved && !isGlobalDragging && touchMoveDistance < 10) {
                         // 正常点击打开网址
                         window.open(app.url, '_blank');
                     }
+
+                    // 阻止事件冒泡
+                    e.stopPropagation();
                 });
 
                 // 鼠标事件 - 使用mousedown/mouseup而不是click
@@ -916,7 +938,7 @@
                 let appMouseStartY = 0;
                 let appMouseMoved = false;
 
-                appItem.addEventListener('mousedown', (e) => {
+                appIcon.addEventListener('mousedown', (e) => {
                     appMouseStartX = e.clientX;
                     appMouseStartY = e.clientY;
                     appMouseMoved = false;
@@ -925,9 +947,12 @@
                     if (e.shiftKey || e.ctrlKey) {
                         openAppEditModal(app.id);
                     }
+
+                    // 阻止事件冒泡
+                    e.stopPropagation();
                 });
 
-                appItem.addEventListener('mousemove', (e) => {
+                appIcon.addEventListener('mousemove', (e) => {
                     if (e.buttons === 1) { // 鼠标左键按下
                         const moveX = Math.abs(e.clientX - appMouseStartX);
                         const moveY = Math.abs(e.clientY - appMouseStartY);
@@ -937,14 +962,20 @@
                             appMouseMoved = true;
                         }
                     }
+
+                    // 阻止事件冒泡
+                    e.stopPropagation();
                 });
 
-                appItem.addEventListener('mouseup', (e) => {
+                appIcon.addEventListener('mouseup', (e) => {
                     // 只有在没有移动且不是全局拖动状态时才触发点击
                     if (!appMouseMoved && !isGlobalDragging && !e.shiftKey && !e.ctrlKey) {
                         // 正常点击打开网址
                         window.open(app.url, '_blank');
                     }
+
+                    // 阻止事件冒泡
+                    e.stopPropagation();
                 });
 
                 // 将应用添加到网格中（在添加按钮之前）
@@ -959,40 +990,69 @@
             // 移除现有的点击事件
             addAppButton.removeEventListener('click', () => openAppEditModal());
 
-            // 添加新的触摸事件
-            addAppButton.addEventListener('touchstart', (e) => {
+            // 获取添加按钮的图标元素
+            const addAppIcon = addAppButton.querySelector('.add-app-button');
+
+            // 添加新的触摸事件 - 只在图标上添加事件
+            let addAppPressTimer;
+
+            addAppIcon.addEventListener('touchstart', (e) => {
                 addAppTouchStartX = e.touches[0].clientX;
                 addAppTouchStartY = e.touches[0].clientY;
                 addAppTouchMoved = false;
-            }, { passive: true });
 
-            addAppButton.addEventListener('touchmove', (e) => {
+                // 添加视觉反馈的计时器
+                addAppPressTimer = setTimeout(() => {
+                    if (!addAppTouchMoved && !isGlobalDragging) {
+                        addAppIcon.classList.add('long-press');
+                    }
+                }, 300);
+
+                // 阻止事件冒泡
+                e.stopPropagation();
+            }, { passive: false });
+
+            addAppIcon.addEventListener('touchmove', (e) => {
                 const moveX = Math.abs(e.touches[0].clientX - addAppTouchStartX);
                 const moveY = Math.abs(e.touches[0].clientY - addAppTouchStartY);
 
                 if (moveX > 10 || moveY > 10) {
                     addAppTouchMoved = true;
+                    clearTimeout(addAppPressTimer);
+                    addAppIcon.classList.remove('long-press');
                 }
-            }, { passive: true });
 
-            addAppButton.addEventListener('touchend', () => {
+                // 阻止事件冒泡
+                e.stopPropagation();
+            }, { passive: false });
+
+            addAppIcon.addEventListener('touchend', (e) => {
+                clearTimeout(addAppPressTimer);
+                addAppIcon.classList.remove('long-press');
+
                 if (!addAppTouchMoved && !isGlobalDragging && touchMoveDistance < 10) {
                     openAppEditModal();
                 }
+
+                // 阻止事件冒泡
+                e.stopPropagation();
             });
 
-            // 添加新的鼠标事件
+            // 添加新的鼠标事件 - 只在图标上添加事件
             let addAppMouseStartX = 0;
             let addAppMouseStartY = 0;
             let addAppMouseMoved = false;
 
-            addAppButton.addEventListener('mousedown', (e) => {
+            addAppIcon.addEventListener('mousedown', (e) => {
                 addAppMouseStartX = e.clientX;
                 addAppMouseStartY = e.clientY;
                 addAppMouseMoved = false;
+
+                // 阻止事件冒泡
+                e.stopPropagation();
             });
 
-            addAppButton.addEventListener('mousemove', (e) => {
+            addAppIcon.addEventListener('mousemove', (e) => {
                 if (e.buttons === 1) {
                     const moveX = Math.abs(e.clientX - addAppMouseStartX);
                     const moveY = Math.abs(e.clientY - addAppMouseStartY);
@@ -1001,12 +1061,18 @@
                         addAppMouseMoved = true;
                     }
                 }
+
+                // 阻止事件冒泡
+                e.stopPropagation();
             });
 
-            addAppButton.addEventListener('mouseup', () => {
+            addAppIcon.addEventListener('mouseup', (e) => {
                 if (!addAppMouseMoved && !isGlobalDragging) {
                     openAppEditModal();
                 }
+
+                // 阻止事件冒泡
+                e.stopPropagation();
             });
         }
 
