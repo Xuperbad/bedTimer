@@ -751,10 +751,8 @@
             if (!syncInProgress) {
                 syncInProgress = true;
                 try {
-                    console.log('正在保存到Supabase，同步码:', syncCode);
-                    const result = await saveMemoToSupabase(syncCode, content);
+                    await saveMemoToSupabase(syncCode, content);
                     lastSyncTime = new Date();
-                    console.log('保存到Supabase成功:', result);
                 } catch (error) {
                     console.error('保存到Supabase失败:', error);
                 } finally {
@@ -776,7 +774,7 @@
                         localStorage.setItem('bedtimeMemo', data.content);
                         localStorage.setItem('bedtimeLastUpdate', data.updated_at);
                         lastLocalUpdate = data.updated_at;
-                        console.log('从Supabase加载了更新的内容');
+
                     }
 
                     lastSyncTime = new Date();
@@ -797,7 +795,7 @@
                 const hasUpdates = await checkForUpdates(syncCode, lastLocalUpdate);
 
                 if (hasUpdates) {
-                    console.log('检测到Supabase有更新，正在加载...');
+
                     await loadMemoFromSupabase();
                 }
             } catch (error) {
@@ -1727,12 +1725,11 @@
                 // 确保supabase对象存在
                 if (typeof window.supabase !== 'undefined') {
                     supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-                    console.log('Supabase客户端初始化成功');
                 } else {
-                    console.error('Supabase对象不存在，请检查脚本是否正确加载');
+
                 }
             } catch (error) {
-                console.error('Supabase客户端初始化失败:', error);
+
             }
 
             // 初始化DOM元素
