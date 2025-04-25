@@ -193,13 +193,18 @@
             width: 100%;
             height: 100%;
             background-color: #f8f9fa;
-            transition: all 0.4s ease;
             z-index: 900;
             overflow-y: auto;
             padding: 40px 20px; /* 增加上下内边距 */
             opacity: 0; /* 初始透明 */
             display: flex;
             justify-content: center; /* 水平居中 */
+            will-change: transform, opacity; /* 优化性能 */
+        }
+
+        /* 当不是拖动状态时使用过渡效果 */
+        .app-drawer-container:not(.dragging) {
+            transition: transform 0.4s ease, opacity 0.4s ease;
         }
 
         .app-drawer-container.active {
@@ -209,7 +214,12 @@
 
         /* 主容器动画效果 */
         .container {
-            transition: all 0.4s ease;
+            will-change: transform, opacity; /* 优化性能 */
+        }
+
+        /* 当不是拖动状态时使用过渡效果 */
+        .container:not(.dragging) {
+            transition: transform 0.4s ease, opacity 0.4s ease;
         }
 
         .container.drawer-active {
@@ -831,6 +841,10 @@
             closeAppEditModal();
         }
 
+        // 全局变量，用于跟踪是否正在拖动
+        let isGlobalDragging = false;
+        let touchMoveDistance = 0;
+
         // 渲染应用列表
         function renderApps() {
             // 清除现有应用（保留添加按钮）
@@ -855,30 +869,144 @@
                 appItem.appendChild(appIcon);
                 appItem.appendChild(appName);
 
-                // 点击打开网址
-                appItem.addEventListener('click', (e) => {
-                    if (e.shiftKey || e.ctrlKey) {
-                        // 编辑模式（按住Shift或Ctrl键点击）
-                        openAppEditModal(app.id);
-                    } else {
+                // 点击打开网址 - 使用mouseup/touchend而不是click
+                let appTouchStartX = 0;
+                let appTouchStartY = 0;
+                let appTouchMoved = false;
+
+                // 触摸开始
+                appItem.addEventListener('touchstart', (e) => {
+                    appTouchStartX = e.touches[0].clientX;
+                    appTouchStartY = e.touches[0].clientY;
+                    appTouchMoved = false;
+
+                    // 长按进入编辑模式
+                    pressTimer = setTimeout(() => {
+                        if (!appTouchMoved && !isGlobalDragging) {
+                            openAppEditModal(app.id);
+                        }
+                    }, 800);
+                }, { passive: true });
+
+                // 触摸移动
+                appItem.addEventListener('touchmove', (e) => {
+                    const moveX = Math.abs(e.touches[0].clientX - appTouchStartX);
+                    const moveY = Math.abs(e.touches[0].clientY - appTouchStartY);
+
+                    // 如果移动超过10px，标记为已移动
+                    if (moveX > 10 || moveY > 10) {
+                        appTouchMoved = true;
+                        clearTimeout(pressTimer); // 取消长按计时器
+                    }
+                }, { passive: true });
+
+                // 触摸结束
+                appItem.addEventListener('touchend', (e) => {
+                    clearTimeout(pressTimer); // 取消长按计时器
+
+                    // 只有在没有移动且不是全局拖动状态时才触发点击
+                    if (!appTouchMoved && !isGlobalDragging && touchMoveDistance < 10) {
                         // 正常点击打开网址
                         window.open(app.url, '_blank');
                     }
                 });
 
-                // 长按进入编辑模式
-                let pressTimer;
-                appItem.addEventListener('touchstart', () => {
-                    pressTimer = setTimeout(() => {
+                // 鼠标事件 - 使用mousedown/mouseup而不是click
+                let appMouseStartX = 0;
+                let appMouseStartY = 0;
+                let appMouseMoved = false;
+
+                appItem.addEventListener('mousedown', (e) => {
+                    appMouseStartX = e.clientX;
+                    appMouseStartY = e.clientY;
+                    appMouseMoved = false;
+
+                    // 编辑模式（按住Shift或Ctrl键点击）
+                    if (e.shiftKey || e.ctrlKey) {
                         openAppEditModal(app.id);
-                    }, 800);
+                    }
                 });
-                appItem.addEventListener('touchend', () => {
-                    clearTimeout(pressTimer);
+
+                appItem.addEventListener('mousemove', (e) => {
+                    if (e.buttons === 1) { // 鼠标左键按下
+                        const moveX = Math.abs(e.clientX - appMouseStartX);
+                        const moveY = Math.abs(e.clientY - appMouseStartY);
+
+                        // 如果移动超过10px，标记为已移动
+                        if (moveX > 10 || moveY > 10) {
+                            appMouseMoved = true;
+                        }
+                    }
+                });
+
+                appItem.addEventListener('mouseup', (e) => {
+                    // 只有在没有移动且不是全局拖动状态时才触发点击
+                    if (!appMouseMoved && !isGlobalDragging && !e.shiftKey && !e.ctrlKey) {
+                        // 正常点击打开网址
+                        window.open(app.url, '_blank');
+                    }
                 });
 
                 // 将应用添加到网格中（在添加按钮之前）
                 appGrid.insertBefore(appItem, addAppButton);
+            });
+
+            // 为添加应用按钮添加类似的处理
+            let addAppTouchStartX = 0;
+            let addAppTouchStartY = 0;
+            let addAppTouchMoved = false;
+
+            // 移除现有的点击事件
+            addAppButton.removeEventListener('click', () => openAppEditModal());
+
+            // 添加新的触摸事件
+            addAppButton.addEventListener('touchstart', (e) => {
+                addAppTouchStartX = e.touches[0].clientX;
+                addAppTouchStartY = e.touches[0].clientY;
+                addAppTouchMoved = false;
+            }, { passive: true });
+
+            addAppButton.addEventListener('touchmove', (e) => {
+                const moveX = Math.abs(e.touches[0].clientX - addAppTouchStartX);
+                const moveY = Math.abs(e.touches[0].clientY - addAppTouchStartY);
+
+                if (moveX > 10 || moveY > 10) {
+                    addAppTouchMoved = true;
+                }
+            }, { passive: true });
+
+            addAppButton.addEventListener('touchend', () => {
+                if (!addAppTouchMoved && !isGlobalDragging && touchMoveDistance < 10) {
+                    openAppEditModal();
+                }
+            });
+
+            // 添加新的鼠标事件
+            let addAppMouseStartX = 0;
+            let addAppMouseStartY = 0;
+            let addAppMouseMoved = false;
+
+            addAppButton.addEventListener('mousedown', (e) => {
+                addAppMouseStartX = e.clientX;
+                addAppMouseStartY = e.clientY;
+                addAppMouseMoved = false;
+            });
+
+            addAppButton.addEventListener('mousemove', (e) => {
+                if (e.buttons === 1) {
+                    const moveX = Math.abs(e.clientX - addAppMouseStartX);
+                    const moveY = Math.abs(e.clientY - addAppMouseStartY);
+
+                    if (moveX > 10 || moveY > 10) {
+                        addAppMouseMoved = true;
+                    }
+                }
+            });
+
+            addAppButton.addEventListener('mouseup', () => {
+                if (!addAppMouseMoved && !isGlobalDragging) {
+                    openAppEditModal();
+                }
             });
         }
 
@@ -911,6 +1039,14 @@
         // 打开应用抽屉
         function openAppDrawer() {
             console.log('Opening app drawer');
+
+            // 移除内联样式，使用类来控制
+            appDrawer.style.transform = '';
+            appDrawer.style.opacity = '';
+            mainContainer.style.transform = '';
+            mainContainer.style.opacity = '';
+
+            // 添加激活类
             appDrawer.classList.add('active');
             mainContainer.classList.add('drawer-active');
         }
@@ -918,6 +1054,14 @@
         // 关闭应用抽屉
         function closeAppDrawer() {
             console.log('Closing app drawer');
+
+            // 移除内联样式，使用类来控制
+            appDrawer.style.transform = '';
+            appDrawer.style.opacity = '';
+            mainContainer.style.transform = '';
+            mainContainer.style.opacity = '';
+
+            // 移除激活类
             appDrawer.classList.remove('active');
             mainContainer.classList.remove('drawer-active');
         }
@@ -936,25 +1080,100 @@
         // 初始化滑动检测
         function initSwipeDetection() {
             let touchStartX = 0;
-            let touchEndX = 0;
-            const minSwipeDistance = 50; // 最小滑动距离
+            let currentTouchX = 0;
+            let isDrawerOpen = false;
+            let screenWidth = window.innerWidth;
 
-            // 主界面滑动检测 - 使用body元素而不是document
+            // 触摸事件处理
             document.body.addEventListener('touchstart', (e) => {
-                touchStartX = e.changedTouches[0].screenX;
+                // 如果是点击按钮或输入框，不处理
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                touchStartX = e.touches[0].clientX;
+                currentTouchX = touchStartX;
+                isDrawerOpen = appDrawer.classList.contains('active');
+
+                // 添加拖动状态类
+                appDrawer.classList.add('dragging');
+                mainContainer.classList.add('dragging');
+
+                // 重置移动距离
+                touchMoveDistance = 0;
+
                 console.log('Touch start:', touchStartX);
-            }, { passive: true });
+            }, { passive: false });
+
+            document.body.addEventListener('touchmove', (e) => {
+                // 如果是点击按钮或输入框，不处理
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                currentTouchX = e.touches[0].clientX;
+                const deltaX = currentTouchX - touchStartX;
+
+                // 计算总移动距离（绝对值）
+                touchMoveDistance = Math.abs(deltaX);
+
+                // 设置全局拖动状态
+                if (touchMoveDistance > 10) {
+                    isGlobalDragging = true;
+                }
+
+                // 计算移动百分比
+                let percent;
+
+                if (isDrawerOpen) {
+                    // 如果抽屉已打开，则从左向右拖动时，百分比从100%减少
+                    percent = Math.max(0, 100 - (deltaX / screenWidth * 100));
+                } else {
+                    // 如果抽屉关闭，则从右向左拖动时，百分比从0增加
+                    percent = Math.max(0, Math.min(100, -deltaX / screenWidth * 100));
+                }
+
+                // 应用实时变换
+                updateDrawerPosition(percent);
+
+                // 阻止默认行为，防止页面滚动
+                e.preventDefault();
+            }, { passive: false });
 
             document.body.addEventListener('touchend', (e) => {
-                touchEndX = e.changedTouches[0].screenX;
-                console.log('Touch end:', touchEndX);
-                handleSwipe();
+                const deltaX = currentTouchX - touchStartX;
+
+                // 移除拖动状态类
+                appDrawer.classList.remove('dragging');
+                mainContainer.classList.remove('dragging');
+
+                // 根据拖动距离和方向决定是打开还是关闭抽屉
+                if (isDrawerOpen) {
+                    // 如果抽屉已打开，向右拖动超过屏幕宽度的20%则关闭
+                    if (deltaX > screenWidth * 0.2) {
+                        closeAppDrawer();
+                    } else {
+                        openAppDrawer(); // 恢复打开状态
+                    }
+                } else {
+                    // 如果抽屉关闭，向左拖动超过屏幕宽度的20%则打开
+                    if (deltaX < -screenWidth * 0.2) {
+                        openAppDrawer();
+                    } else {
+                        closeAppDrawer(); // 恢复关闭状态
+                    }
+                }
+
+                // 延迟重置全局拖动状态，给点击事件处理留出时间
+                setTimeout(() => {
+                    isGlobalDragging = false;
+                }, 50);
             }, { passive: true });
 
-            // 添加鼠标事件支持（用于桌面测试）
+            // 鼠标事件处理（桌面设备）
             let mouseStartX = 0;
+            let currentMouseX = 0;
             let isMouseDown = false;
-            let isDragging = false;
 
             document.body.addEventListener('mousedown', (e) => {
                 // 如果是点击按钮或输入框，不处理
@@ -964,6 +1183,13 @@
 
                 isMouseDown = true;
                 mouseStartX = e.clientX;
+                currentMouseX = mouseStartX;
+                isDrawerOpen = appDrawer.classList.contains('active');
+
+                // 添加拖动状态类
+                appDrawer.classList.add('dragging');
+                mainContainer.classList.add('dragging');
+
                 console.log('Mouse down:', mouseStartX);
 
                 // 阻止默认行为，防止文本选择
@@ -973,10 +1199,22 @@
             document.body.addEventListener('mousemove', (e) => {
                 if (!isMouseDown) return;
 
-                // 如果移动超过10px，认为是拖动而不是点击
-                if (Math.abs(e.clientX - mouseStartX) > 10) {
-                    isDragging = true;
+                currentMouseX = e.clientX;
+                const deltaX = currentMouseX - mouseStartX;
+
+                // 计算移动百分比
+                let percent;
+
+                if (isDrawerOpen) {
+                    // 如果抽屉已打开，则从左向右拖动时，百分比从100%减少
+                    percent = Math.max(0, 100 - (deltaX / screenWidth * 100));
+                } else {
+                    // 如果抽屉关闭，则从右向左拖动时，百分比从0增加
+                    percent = Math.max(0, Math.min(100, -deltaX / screenWidth * 100));
                 }
+
+                // 应用实时变换
+                updateDrawerPosition(percent);
 
                 // 阻止默认行为，防止文本选择
                 e.preventDefault();
@@ -985,56 +1223,88 @@
             document.body.addEventListener('mouseup', (e) => {
                 if (!isMouseDown) return;
 
-                const mouseEndX = e.clientX;
-                console.log('Mouse up:', mouseEndX);
-                const swipeDistance = mouseEndX - mouseStartX;
+                const deltaX = currentMouseX - mouseStartX;
+                const mouseMoveDistance = Math.abs(deltaX);
 
-                // 只有在拖动状态下才处理滑动
-                if (isDragging) {
-                    // 向左滑动打开应用抽屉
-                    if (swipeDistance < -minSwipeDistance && !appDrawer.classList.contains('active')) {
-                        openAppDrawer();
-                    }
+                // 设置全局拖动状态
+                if (mouseMoveDistance > 10) {
+                    isGlobalDragging = true;
+                }
 
-                    // 向右滑动关闭应用抽屉
-                    if (swipeDistance > minSwipeDistance && appDrawer.classList.contains('active')) {
+                // 移除拖动状态类
+                appDrawer.classList.remove('dragging');
+                mainContainer.classList.remove('dragging');
+
+                // 根据拖动距离和方向决定是打开还是关闭抽屉
+                if (isDrawerOpen) {
+                    // 如果抽屉已打开，向右拖动超过屏幕宽度的20%则关闭
+                    if (deltaX > screenWidth * 0.2) {
                         closeAppDrawer();
+                    } else {
+                        openAppDrawer(); // 恢复打开状态
                     }
-
-                    // 阻止默认行为，防止文本选择
-                    e.preventDefault();
+                } else {
+                    // 如果抽屉关闭，向左拖动超过屏幕宽度的20%则打开
+                    if (deltaX < -screenWidth * 0.2) {
+                        openAppDrawer();
+                    } else {
+                        closeAppDrawer(); // 恢复关闭状态
+                    }
                 }
 
                 // 重置状态
                 isMouseDown = false;
-                isDragging = false;
+
+                // 延迟重置全局拖动状态，给点击事件处理留出时间
+                setTimeout(() => {
+                    isGlobalDragging = false;
+                }, 50);
             });
 
             // 如果鼠标离开页面，也重置状态
             document.body.addEventListener('mouseleave', () => {
-                isMouseDown = false;
-                isDragging = false;
+                if (isMouseDown) {
+                    // 移除拖动状态类
+                    appDrawer.classList.remove('dragging');
+                    mainContainer.classList.remove('dragging');
+
+                    // 恢复到原始状态
+                    if (isDrawerOpen) {
+                        openAppDrawer();
+                    } else {
+                        closeAppDrawer();
+                    }
+
+                    isMouseDown = false;
+
+                    // 重置全局拖动状态
+                    isGlobalDragging = false;
+                }
             });
 
-            // 处理触摸滑动
-            function handleSwipe() {
-                const swipeDistance = touchEndX - touchStartX;
-                console.log('Swipe distance:', swipeDistance);
+            // 窗口大小改变时更新屏幕宽度
+            window.addEventListener('resize', () => {
+                screenWidth = window.innerWidth;
+            });
+        }
 
-                // 向左滑动打开应用抽屉
-                if (swipeDistance < -minSwipeDistance && !appDrawer.classList.contains('active')) {
-                    console.log('Opening app drawer');
-                    openAppDrawer();
-                }
+        // 根据百分比更新抽屉位置
+        function updateDrawerPosition(percent) {
+            // 抽屉位置：从右侧移动到左侧，百分比从0到100
+            const drawerTransform = `translateX(${-percent}%)`;
+            appDrawer.style.transform = drawerTransform;
 
-                // 向右滑动关闭应用抽屉
-                if (swipeDistance > minSwipeDistance && appDrawer.classList.contains('active')) {
-                    console.log('Closing app drawer');
-                    closeAppDrawer();
-                }
-            }
+            // 抽屉透明度：从0到1，与百分比成正比
+            const drawerOpacity = percent / 100;
+            appDrawer.style.opacity = drawerOpacity;
 
-            // 不再添加测试按钮
+            // 主容器位置：向左移动，最多30%
+            const containerTransform = `translateX(${-(percent * 0.3)}%)`;
+            mainContainer.style.transform = containerTransform;
+
+            // 主容器透明度：从1降到0.3，与百分比成反比
+            const containerOpacity = 1 - (percent * 0.7 / 100);
+            mainContainer.style.opacity = containerOpacity;
         }
 
         // 页面加载完成后初始化
