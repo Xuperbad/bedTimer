@@ -1188,17 +1188,61 @@
             });
         }
 
+        // 默认应用配置 - 在这里配置您想要的默认应用
+        const defaultApps = [
+            {
+                id: 'default-1',
+                name: '文本工具',
+                url: 'https://xuperbad.github.io/mdSplitter/md_splitter.html',
+                icon: 'MD',
+                isDefault: true
+            },
+            // 您可以在这里添加更多默认应用
+        ];
+
         // 从本地存储加载应用
         function loadApps() {
             const savedApps = localStorage.getItem('bedtimeApps');
+            let loadedApps = [];
+
             if (savedApps) {
                 try {
-                    apps = JSON.parse(savedApps);
+                    loadedApps = JSON.parse(savedApps);
+
+                    // 确保所有默认应用都存在
+                    ensureDefaultApps(loadedApps);
+
+                    // 更新应用列表
+                    apps = loadedApps;
                 } catch (e) {
                     console.error("加载应用时出错:", e);
-                    apps = [];
+                    // 如果加载出错，使用默认应用
+                    apps = [...defaultApps];
+                    saveApps();
                 }
+            } else {
+                // 如果没有保存的应用，使用默认应用
+                apps = [...defaultApps];
+                saveApps();
             }
+        }
+
+        // 确保默认应用存在
+        function ensureDefaultApps(loadedApps) {
+            // 检查每个默认应用是否存在
+            defaultApps.forEach(defaultApp => {
+                const exists = loadedApps.some(app =>
+                    app.url === defaultApp.url || app.id === defaultApp.id
+                );
+
+                // 如果不存在，添加到加载的应用列表中
+                if (!exists) {
+                    loadedApps.push({
+                        ...defaultApp,
+                        createdAt: new Date().toISOString()
+                    });
+                }
+            });
         }
 
         // 保存应用到本地存储
