@@ -915,6 +915,55 @@
             return remoteUpdatedAt > localDate;
         }
 
+        // 创建通知元素
+        function createNotification(message, duration = 3000) {
+            // 检查是否已存在通知元素，如果存在则移除
+            const existingNotification = document.getElementById('sync-notification');
+            if (existingNotification) {
+                document.body.removeChild(existingNotification);
+            }
+
+            // 创建通知元素
+            const notification = document.createElement('div');
+            notification.id = 'sync-notification';
+            notification.style.position = 'fixed';
+            notification.style.top = '50%';
+            notification.style.left = '50%';
+            notification.style.transform = 'translate(-50%, -50%)';
+            notification.style.backgroundColor = 'white';
+            notification.style.padding = '20px';
+            notification.style.borderRadius = '10px';
+            notification.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+            notification.style.zIndex = '2000';
+            notification.style.maxWidth = '80%';
+            notification.style.textAlign = 'center';
+
+            // 添加消息
+            notification.innerHTML = `
+                <div style="margin-bottom: 15px;">${message}</div>
+                <button id="notification-confirm" style="background-color: #8B4513; color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer;">确定</button>
+            `;
+
+            // 添加到页面
+            document.body.appendChild(notification);
+
+            // 添加确认按钮事件
+            document.getElementById('notification-confirm').addEventListener('click', function() {
+                document.body.removeChild(notification);
+            });
+
+            // 自动关闭
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, duration);
+            }
+
+            return notification;
+        }
+
         // 初始化同步码点击事件
         function initSyncCodeClick() {
             const poweredBy = document.getElementById('powered-by');
@@ -926,51 +975,19 @@
 
                     if (lastChangeTime && (now - parseInt(lastChangeTime)) < 3600000) { // 1小时内限制更改
                         const minutesLeft = Math.ceil((3600000 - (now - parseInt(lastChangeTime))) / 60000);
-                        if (syncCode !== prompt(`当前同步码: ${syncCode}\n\n您最近已经更改过同步码，请等待${minutesLeft}分钟后再次更改。\n\n如果您只想使用现有同步码，请直接点击确定:`, syncCode)) {
-                            alert('为防止数据库垃圾信息，请稍后再尝试更改同步码。');
-                            return;
-                        }
-                    } else {
-                        // 可以更改同步码
-                        const newCode = prompt(`当前同步码: ${syncCode}\n\n请输入新的同步码以从其他设备同步备忘录内容:`, syncCode);
-                        if (newCode && newCode !== syncCode) {
-                            // 检查新同步码是否已存在数据
-                            try {
-                                const { data } = await supabase
-                                    .from('memo_sync')
-                                    .select('content')
-                                    .eq('sync_code', newCode)
-                                    .single();
+                        createNotification(`同步码已设置为: ${syncCode}<br>请等待${minutesLeft}分钟后再次更改`);
+                        return;
+                    }
 
-                                if (data) {
-                                    // 同步码已存在数据
-                                    const confirmOverwrite = confirm(`同步码"${newCode}"已存在数据。\n\n继续操作将加载该同步码的数据，并覆盖当前的备忘录内容。\n\n是否继续？`);
-                                    if (!confirmOverwrite) {
-                                        return;
-                                    }
-                                } else {
-                                    // 同步码不存在数据，将创建新记录
-                                    const confirmCreate = confirm(`同步码"${newCode}"不存在数据。\n\n继续操作将创建新的同步记录，并将当前备忘录内容保存到该同步码下。\n\n是否继续？`);
-                                    if (!confirmCreate) {
-                                        return;
-                                    }
-                                }
-                            } catch (error) {
-                                // 同步码不存在数据，将创建新记录
-                                const confirmCreate = confirm(`同步码"${newCode}"不存在数据。\n\n继续操作将创建新的同步记录，并将当前备忘录内容保存到该同步码下。\n\n是否继续？`);
-                                if (!confirmCreate) {
-                                    return;
-                                }
-                            }
-
-                            // 设置新的同步码
-                            if (setSyncCode(newCode)) {
-                                // 记录更改时间
-                                localStorage.setItem('bedtimeSyncCodeLastChange', now.toString());
-                                alert(`同步码已设置为: ${newCode}\n正在尝试同步...`);
-                            } else {
-                                alert('同步码无效，请重试。');
-                            }
+                    // 可以更改同步码
+                    const newCode = prompt(`当前同步码: ${syncCode}\n\n请输入新的同步码以从其他设备同步备忘录内容:`, syncCode);
+                    if (newCode && newCode !== syncCode) {
+                        // 设置新的同步码
+                        if (setSyncCode(newCode)) {
+                            // 记录更改时间
+                            localStorage.setItem('bedtimeSyncCodeLastChange', now.toString());
+                            // 显示简洁的通知
+                            createNotification(`同步码已设置为: ${newCode}<br>正在尝试同步...`);
                         }
                     }
                 });
