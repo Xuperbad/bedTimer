@@ -264,6 +264,13 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
 
+        /* 长按效果 */
+        .app-icon.long-press {
+            transform: scale(0.9);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            background-color: #d0d0d0;
+        }
+
         .app-name {
             font-size: 14px;
             text-align: center;
@@ -873,64 +880,123 @@
                 let appTouchStartY = 0;
                 let appTouchMoved = false;
 
-                // 声明长按计时器变量
-                let pressTimer;
+                // 使用pointer事件实现长按功能
+                let longPressTimer;
+                let isPointerDown = false;
+                let pointerStartX = 0;
+                let pointerStartY = 0;
+                let hasMoved = false;
+                const LONG_PRESS_DURATION = 500; // 长按时间阈值（毫秒）
 
-                // 触摸开始 - 只在图标上添加事件
-                appIcon.addEventListener('touchstart', (e) => {
-                    appTouchStartX = e.touches[0].clientX;
-                    appTouchStartY = e.touches[0].clientY;
-                    appTouchMoved = false;
+                // 指针按下事件
+                appIcon.addEventListener('pointerdown', (e) => {
+                    console.log('应用图标: 指针按下');
+                    isPointerDown = true;
+                    hasMoved = false;
+                    pointerStartX = e.clientX;
+                    pointerStartY = e.clientY;
 
-                    // 长按进入编辑模式
-                    pressTimer = setTimeout(() => {
-                        if (!appTouchMoved && !isGlobalDragging) {
+                    // 添加视觉反馈
+                    setTimeout(() => {
+                        if (isPointerDown && !hasMoved) {
+                            console.log('应用图标: 添加视觉反馈');
+                            appIcon.classList.add('long-press');
+                        }
+                    }, 100);
+
+                    // 设置长按计时器
+                    longPressTimer = setTimeout(() => {
+                        if (isPointerDown && !hasMoved) {
+                            console.log('应用图标: 检测到长按');
+
                             // 震动反馈（如果设备支持）
                             if (navigator.vibrate) {
                                 navigator.vibrate(50);
+                                console.log('应用图标: 震动反馈已触发');
                             }
-
-                            // 添加视觉反馈
-                            appIcon.classList.add('long-press');
 
                             // 打开编辑模式
                             openAppEditModal(app.id);
+
+                            // 防止后续触发点击事件
+                            hasMoved = true;
                         }
-                    }, 800);
+                    }, LONG_PRESS_DURATION);
 
-                    // 阻止事件冒泡
+                    // 阻止事件冒泡和默认行为
                     e.stopPropagation();
-                }, { passive: false });
+                    e.preventDefault();
+                });
 
-                // 触摸移动 - 只在图标上添加事件
-                appIcon.addEventListener('touchmove', (e) => {
-                    const moveX = Math.abs(e.touches[0].clientX - appTouchStartX);
-                    const moveY = Math.abs(e.touches[0].clientY - appTouchStartY);
+                // 指针移动事件
+                appIcon.addEventListener('pointermove', (e) => {
+                    if (!isPointerDown) return;
+
+                    const moveX = Math.abs(e.clientX - pointerStartX);
+                    const moveY = Math.abs(e.clientY - pointerStartY);
 
                     // 如果移动超过10px，标记为已移动
                     if (moveX > 10 || moveY > 10) {
-                        appTouchMoved = true;
-                        clearTimeout(pressTimer); // 取消长按计时器
+                        console.log('应用图标: 指针移动超过阈值', moveX, moveY);
+                        hasMoved = true;
+                        clearTimeout(longPressTimer);
                         appIcon.classList.remove('long-press'); // 移除长按效果
                     }
 
                     // 阻止事件冒泡
                     e.stopPropagation();
-                }, { passive: false });
+                });
 
-                // 触摸结束 - 只在图标上添加事件
-                appIcon.addEventListener('touchend', (e) => {
-                    clearTimeout(pressTimer); // 取消长按计时器
-                    appIcon.classList.remove('long-press'); // 移除长按效果
+                // 指针释放事件
+                appIcon.addEventListener('pointerup', (e) => {
+                    console.log('应用图标: 指针释放');
 
-                    // 只有在没有移动且不是全局拖动状态时才触发点击
-                    if (!appTouchMoved && !isGlobalDragging && touchMoveDistance < 10) {
+                    // 清除长按计时器
+                    clearTimeout(longPressTimer);
+
+                    // 移除视觉反馈
+                    appIcon.classList.remove('long-press');
+
+                    // 如果没有移动且不是全局拖动状态，则视为点击
+                    if (!hasMoved && !isGlobalDragging) {
+                        console.log('应用图标: 触发点击事件，打开网址');
                         // 正常点击打开网址
                         window.open(app.url, '_blank');
                     }
 
+                    // 重置状态
+                    isPointerDown = false;
+
                     // 阻止事件冒泡
                     e.stopPropagation();
+                });
+
+                // 指针离开事件
+                appIcon.addEventListener('pointerleave', (e) => {
+                    console.log('应用图标: 指针离开');
+
+                    // 清除长按计时器
+                    clearTimeout(longPressTimer);
+
+                    // 移除视觉反馈
+                    appIcon.classList.remove('long-press');
+
+                    // 重置状态
+                    isPointerDown = false;
+
+                    // 阻止事件冒泡
+                    e.stopPropagation();
+                });
+
+                // 添加contextmenu事件作为备用方案
+                appIcon.addEventListener('contextmenu', (e) => {
+                    console.log('应用图标: 检测到contextmenu事件（长按）');
+                    e.preventDefault();
+
+                    // 打开编辑模式
+                    openAppEditModal(app.id);
+
+                    return false;
                 });
 
                 // 鼠标事件 - 使用mousedown/mouseup而不是click
@@ -993,49 +1059,95 @@
             // 获取添加按钮的图标元素
             const addAppIcon = addAppButton.querySelector('.add-app-button');
 
-            // 添加新的触摸事件 - 只在图标上添加事件
-            let addAppPressTimer;
+            // 使用pointer事件实现点击功能
+            let addLongPressTimer;
+            let addIsPointerDown = false;
+            let addPointerStartX = 0;
+            let addPointerStartY = 0;
+            let addHasMoved = false;
 
-            addAppIcon.addEventListener('touchstart', (e) => {
-                addAppTouchStartX = e.touches[0].clientX;
-                addAppTouchStartY = e.touches[0].clientY;
-                addAppTouchMoved = false;
+            // 指针按下事件
+            addAppIcon.addEventListener('pointerdown', (e) => {
+                console.log('添加按钮: 指针按下');
+                addIsPointerDown = true;
+                addHasMoved = false;
+                addPointerStartX = e.clientX;
+                addPointerStartY = e.clientY;
 
-                // 添加视觉反馈的计时器
-                addAppPressTimer = setTimeout(() => {
-                    if (!addAppTouchMoved && !isGlobalDragging) {
+                // 添加视觉反馈
+                setTimeout(() => {
+                    if (addIsPointerDown && !addHasMoved) {
+                        console.log('添加按钮: 添加视觉反馈');
                         addAppIcon.classList.add('long-press');
                     }
-                }, 300);
+                }, 100);
 
-                // 阻止事件冒泡
+                // 阻止事件冒泡和默认行为
                 e.stopPropagation();
-            }, { passive: false });
+                e.preventDefault();
+            });
 
-            addAppIcon.addEventListener('touchmove', (e) => {
-                const moveX = Math.abs(e.touches[0].clientX - addAppTouchStartX);
-                const moveY = Math.abs(e.touches[0].clientY - addAppTouchStartY);
+            // 指针移动事件
+            addAppIcon.addEventListener('pointermove', (e) => {
+                if (!addIsPointerDown) return;
 
+                const moveX = Math.abs(e.clientX - addPointerStartX);
+                const moveY = Math.abs(e.clientY - addPointerStartY);
+
+                // 如果移动超过10px，标记为已移动
                 if (moveX > 10 || moveY > 10) {
-                    addAppTouchMoved = true;
-                    clearTimeout(addAppPressTimer);
-                    addAppIcon.classList.remove('long-press');
+                    console.log('添加按钮: 指针移动超过阈值', moveX, moveY);
+                    addHasMoved = true;
+                    addAppIcon.classList.remove('long-press'); // 移除长按效果
                 }
 
                 // 阻止事件冒泡
                 e.stopPropagation();
-            }, { passive: false });
+            });
 
-            addAppIcon.addEventListener('touchend', (e) => {
-                clearTimeout(addAppPressTimer);
+            // 指针释放事件
+            addAppIcon.addEventListener('pointerup', (e) => {
+                console.log('添加按钮: 指针释放');
+
+                // 移除视觉反馈
                 addAppIcon.classList.remove('long-press');
 
-                if (!addAppTouchMoved && !isGlobalDragging && touchMoveDistance < 10) {
+                // 如果没有移动且不是全局拖动状态，则视为点击
+                if (!addHasMoved && !isGlobalDragging) {
+                    console.log('添加按钮: 触发点击事件，打开编辑模式');
                     openAppEditModal();
                 }
 
+                // 重置状态
+                addIsPointerDown = false;
+
                 // 阻止事件冒泡
                 e.stopPropagation();
+            });
+
+            // 指针离开事件
+            addAppIcon.addEventListener('pointerleave', (e) => {
+                console.log('添加按钮: 指针离开');
+
+                // 移除视觉反馈
+                addAppIcon.classList.remove('long-press');
+
+                // 重置状态
+                addIsPointerDown = false;
+
+                // 阻止事件冒泡
+                e.stopPropagation();
+            });
+
+            // 添加contextmenu事件作为备用方案
+            addAppIcon.addEventListener('contextmenu', (e) => {
+                console.log('添加按钮: 检测到contextmenu事件');
+                e.preventDefault();
+
+                // 打开编辑模式
+                openAppEditModal();
+
+                return false;
             });
 
             // 添加新的鼠标事件 - 只在图标上添加事件
