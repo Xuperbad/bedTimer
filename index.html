@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>倒计时</title>
+    <!-- Supabase JS 客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -700,24 +702,207 @@
 
         // 备忘录功能
         let memoText;
+        let lastSyncTime = null;
+        let syncInProgress = false;
+        let syncCode = null;
+        let lastLocalUpdate = new Date().toISOString();
+        let syncCheckInterval = null;
 
         // 初始化备忘录
-        function initMemo() {
+        async function initMemo() {
             memoText = document.getElementById('memo-text');
 
-            // 加载保存的备忘录内容
-            const savedMemo = localStorage.getItem('bedtimeMemo');
-            if (savedMemo) {
-                memoText.value = savedMemo;
+            // 获取同步码
+            syncCode = getSyncCode();
+
+            // 尝试从Supabase加载内容
+            await loadMemoFromSupabase();
+
+            // 如果没有从Supabase加载到内容，则尝试从本地加载
+            if (!memoText.value) {
+                const savedMemo = localStorage.getItem('bedtimeMemo');
+                if (savedMemo) {
+                    memoText.value = savedMemo;
+                    // 将本地内容保存到Supabase
+                    await saveMemoToSupabase(syncCode, savedMemo);
+                }
             }
 
             // 添加事件监听器，自动保存
             memoText.addEventListener('input', saveMemo);
+
+            // 添加双击事件，显示同步码
+            memoText.addEventListener('dblclick', showSyncCode);
+
+            // 设置定期检查更新的定时器
+            syncCheckInterval = setInterval(checkForMemoUpdates, 30000); // 每30秒检查一次
         }
 
         // 保存备忘录内容
-        function saveMemo() {
-            localStorage.setItem('bedtimeMemo', memoText.value);
+        async function saveMemo() {
+            const content = memoText.value;
+
+            // 保存到本地
+            localStorage.setItem('bedtimeMemo', content);
+            lastLocalUpdate = new Date().toISOString();
+            localStorage.setItem('bedtimeLastUpdate', lastLocalUpdate);
+
+            // 保存到Supabase
+            if (!syncInProgress) {
+                syncInProgress = true;
+                try {
+                    console.log('正在保存到Supabase，同步码:', syncCode);
+                    const result = await saveMemoToSupabase(syncCode, content);
+                    lastSyncTime = new Date();
+                    console.log('保存到Supabase成功:', result);
+                } catch (error) {
+                    console.error('保存到Supabase失败:', error);
+                } finally {
+                    syncInProgress = false;
+                }
+            }
+        }
+
+        // 从Supabase加载备忘录内容
+        async function loadMemoFromSupabase() {
+            try {
+                const data = await fetchMemoFromSupabase(syncCode);
+                if (data && data.content) {
+                    // 比较本地和远程的更新时间
+                    const localLastUpdate = localStorage.getItem('bedtimeLastUpdate');
+
+                    if (!localLastUpdate || new Date(data.updated_at) > new Date(localLastUpdate)) {
+                        memoText.value = data.content;
+                        localStorage.setItem('bedtimeMemo', data.content);
+                        localStorage.setItem('bedtimeLastUpdate', data.updated_at);
+                        lastLocalUpdate = data.updated_at;
+                        console.log('从Supabase加载了更新的内容');
+                    }
+
+                    lastSyncTime = new Date();
+                    return true;
+                }
+            } catch (error) {
+                console.error('从Supabase加载失败:', error);
+            }
+            return false;
+        }
+
+        // 定期检查Supabase是否有更新
+        async function checkForMemoUpdates() {
+            if (syncInProgress) return;
+
+            try {
+                syncInProgress = true;
+                const hasUpdates = await checkForUpdates(syncCode, lastLocalUpdate);
+
+                if (hasUpdates) {
+                    console.log('检测到Supabase有更新，正在加载...');
+                    await loadMemoFromSupabase();
+                }
+            } catch (error) {
+                console.error('检查更新失败:', error);
+            } finally {
+                syncInProgress = false;
+            }
+        }
+
+        // 生成同步码
+        function generateSyncCode() {
+            const adjectives = ['快乐', '聪明', '勇敢', '温柔', '活泼', '安静', '明亮', '敏捷', '友好', '善良'];
+            const nouns = ['猫咪', '狗狗', '兔子', '熊猫', '老虎', '狮子', '大象', '长颈鹿', '海豚', '企鹅'];
+
+            const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+            const randomNumber = Math.floor(Math.random() * 100);
+
+            return `${randomAdjective}-${randomNoun}-${randomNumber}`;
+        }
+
+        // 获取同步码
+        function getSyncCode() {
+            let code = localStorage.getItem('bedtimeSyncCode');
+            if (!code) {
+                code = generateSyncCode();
+                localStorage.setItem('bedtimeSyncCode', code);
+            }
+            return code;
+        }
+
+        // 从Supabase获取备忘录内容
+        async function fetchMemoFromSupabase(syncCode) {
+            const { data, error } = await supabase
+                .from('memo_sync')
+                .select('content, updated_at')
+                .eq('sync_code', syncCode)
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 是"没有找到结果"的错误
+                console.error('从Supabase获取备忘录时出错:', error);
+                return null;
+            }
+
+            return data;
+        }
+
+        // 保存备忘录内容到Supabase
+        async function saveMemoToSupabase(syncCode, content) {
+            const { error } = await supabase
+                .from('memo_sync')
+                .upsert({
+                    sync_code: syncCode,
+                    content: content,
+                    updated_at: new Date().toISOString()
+                });
+
+            if (error) {
+                console.error('保存备忘录到Supabase时出错:', error);
+                return false;
+            }
+
+            return true;
+        }
+
+        // 检查Supabase是否有更新
+        async function checkForUpdates(syncCode, localUpdatedAt) {
+            const { data, error } = await supabase
+                .from('memo_sync')
+                .select('updated_at')
+                .eq('sync_code', syncCode)
+                .single();
+
+            if (error) {
+                if (error.code === 'PGRST116') { // 没有找到结果
+                    return false;
+                }
+                console.error('检查更新时出错:', error);
+                return false;
+            }
+
+            if (!data) return false;
+
+            // 比较时间戳
+            const remoteUpdatedAt = new Date(data.updated_at);
+            const localDate = new Date(localUpdatedAt);
+
+            return remoteUpdatedAt > localDate;
+        }
+
+        // 显示同步码
+        function showSyncCode() {
+            const code = getSyncCode();
+            alert(`您的同步码是: ${code}\n\n请记住这个同步码，您可以在其他设备上使用它来同步备忘录内容。`);
+        }
+
+        // 设置同步码（用于在其他设备上输入同步码）
+        function setSyncCode(newCode) {
+            if (newCode && newCode.trim() !== '') {
+                localStorage.setItem('bedtimeSyncCode', newCode.trim());
+                syncCode = newCode.trim();
+                loadMemoFromSupabase(); // 立即尝试加载
+                return true;
+            }
+            return false;
         }
 
         // 应用桌面功能
@@ -901,7 +1086,7 @@
 
                 // 指针按下事件
                 appIcon.addEventListener('pointerdown', (e) => {
-                    console.log('应用图标: 指针按下');
+                    // 指针按下
                     isPointerDown = true;
                     hasMoved = false;
                     pointerStartX = e.clientX;
@@ -910,7 +1095,7 @@
                     // 添加视觉反馈
                     setTimeout(() => {
                         if (isPointerDown && !hasMoved) {
-                            console.log('应用图标: 添加视觉反馈');
+                            // 添加视觉反馈
                             appIcon.classList.add('long-press');
                         }
                     }, 100);
@@ -918,12 +1103,12 @@
                     // 设置长按计时器
                     longPressTimer = setTimeout(() => {
                         if (isPointerDown && !hasMoved) {
-                            console.log('应用图标: 检测到长按');
+                            // 检测到长按
 
                             // 震动反馈（如果设备支持）
                             if (navigator.vibrate) {
                                 navigator.vibrate(50);
-                                console.log('应用图标: 震动反馈已触发');
+                                // 震动反馈已触发
                             }
 
                             // 打开编辑模式
@@ -948,7 +1133,7 @@
 
                     // 如果移动超过10px，标记为已移动
                     if (moveX > 10 || moveY > 10) {
-                        console.log('应用图标: 指针移动超过阈值', moveX, moveY);
+                        // 指针移动超过阈值
                         hasMoved = true;
                         clearTimeout(longPressTimer);
                         appIcon.classList.remove('long-press'); // 移除长按效果
@@ -960,7 +1145,7 @@
 
                 // 指针释放事件
                 appIcon.addEventListener('pointerup', (e) => {
-                    console.log('应用图标: 指针释放');
+                    // 指针释放
 
                     // 清除长按计时器
                     clearTimeout(longPressTimer);
@@ -970,7 +1155,7 @@
 
                     // 如果没有移动且不是全局拖动状态，则视为点击
                     if (!hasMoved && !isGlobalDragging) {
-                        console.log('应用图标: 触发点击事件，打开网址');
+                        // 触发点击事件，打开网址
                         // 正常点击打开网址
                         window.open(app.url, '_blank');
                     }
@@ -984,7 +1169,7 @@
 
                 // 指针离开事件
                 appIcon.addEventListener('pointerleave', (e) => {
-                    console.log('应用图标: 指针离开');
+                    // 指针离开
 
                     // 清除长按计时器
                     clearTimeout(longPressTimer);
@@ -1001,7 +1186,7 @@
 
                 // 添加contextmenu事件作为备用方案
                 appIcon.addEventListener('contextmenu', (e) => {
-                    console.log('应用图标: 检测到contextmenu事件（长按）');
+                    // 检测到contextmenu事件（长按）
                     e.preventDefault();
 
                     // 打开编辑模式
@@ -1079,7 +1264,6 @@
 
             // 指针按下事件
             addAppIcon.addEventListener('pointerdown', (e) => {
-                console.log('添加按钮: 指针按下');
                 addIsPointerDown = true;
                 addHasMoved = false;
                 addPointerStartX = e.clientX;
@@ -1088,7 +1272,6 @@
                 // 添加视觉反馈
                 setTimeout(() => {
                     if (addIsPointerDown && !addHasMoved) {
-                        console.log('添加按钮: 添加视觉反馈');
                         addAppIcon.classList.add('long-press');
                     }
                 }, 100);
@@ -1107,7 +1290,6 @@
 
                 // 如果移动超过10px，标记为已移动
                 if (moveX > 10 || moveY > 10) {
-                    console.log('添加按钮: 指针移动超过阈值', moveX, moveY);
                     addHasMoved = true;
                     addAppIcon.classList.remove('long-press'); // 移除长按效果
                 }
@@ -1118,14 +1300,11 @@
 
             // 指针释放事件
             addAppIcon.addEventListener('pointerup', (e) => {
-                console.log('添加按钮: 指针释放');
-
                 // 移除视觉反馈
                 addAppIcon.classList.remove('long-press');
 
                 // 如果没有移动且不是全局拖动状态，则视为点击
                 if (!addHasMoved && !isGlobalDragging) {
-                    console.log('添加按钮: 触发点击事件，打开编辑模式');
                     openAppEditModal();
                 }
 
@@ -1138,8 +1317,6 @@
 
             // 指针离开事件
             addAppIcon.addEventListener('pointerleave', (e) => {
-                console.log('添加按钮: 指针离开');
-
                 // 移除视觉反馈
                 addAppIcon.classList.remove('long-press');
 
@@ -1152,7 +1329,6 @@
 
             // 添加contextmenu事件作为备用方案
             addAppIcon.addEventListener('contextmenu', (e) => {
-                console.log('添加按钮: 检测到contextmenu事件');
                 e.preventDefault();
 
                 // 打开编辑模式
@@ -1271,8 +1447,6 @@
 
         // 打开应用抽屉
         function openAppDrawer() {
-            console.log('Opening app drawer');
-
             // 移除内联样式，使用类来控制
             appDrawer.style.transform = '';
             appDrawer.style.opacity = '';
@@ -1286,8 +1460,6 @@
 
         // 关闭应用抽屉
         function closeAppDrawer() {
-            console.log('Closing app drawer');
-
             // 移除内联样式，使用类来控制
             appDrawer.style.transform = '';
             appDrawer.style.opacity = '';
@@ -1299,16 +1471,7 @@
             mainContainer.classList.remove('drawer-active');
         }
 
-        // 添加一个全局快捷键来打开/关闭应用抽屉（用于测试）
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'a') { // 按 'a' 键打开应用抽屉
-                if (!appDrawer.classList.contains('active')) {
-                    openAppDrawer();
-                } else {
-                    closeAppDrawer();
-                }
-            }
-        });
+        // 应用抽屉可以通过从右向左滑动屏幕打开
 
         // 初始化滑动检测
         function initSwipeDetection() {
@@ -1334,8 +1497,6 @@
 
                 // 重置移动距离
                 touchMoveDistance = 0;
-
-                console.log('Touch start:', touchStartX);
             }, { passive: false });
 
             document.body.addEventListener('touchmove', (e) => {
@@ -1422,8 +1583,6 @@
                 // 添加拖动状态类
                 appDrawer.classList.add('dragging');
                 mainContainer.classList.add('dragging');
-
-                console.log('Mouse down:', mouseStartX);
 
                 // 阻止默认行为，防止文本选择
                 e.preventDefault();
@@ -1540,8 +1699,42 @@
             mainContainer.style.opacity = containerOpacity;
         }
 
+        // 添加键盘快捷键监听
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Shift+S: 设置同步码
+            if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+                e.preventDefault();
+                const newCode = prompt('请输入同步码以从其他设备同步备忘录内容:');
+                if (newCode) {
+                    if (setSyncCode(newCode)) {
+                        alert(`同步码已设置为: ${newCode}\n正在尝试同步...`);
+                    } else {
+                        alert('同步码无效，请重试。');
+                    }
+                }
+            }
+        });
+
+        // 声明全局变量
+        let supabase;
+        const supabaseUrl = 'https://iohhwiviuugoawsmxjyy.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvaGh3aXZpdXVnb2F3c214anl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1NzQ5NzYsImV4cCI6MjA2MTE1MDk3Nn0.4KTa7AqBVgurN30gy3han9WTxD2x_7TsMDbdEDxVmSQ';
+
         // 页面加载完成后初始化
         window.onload = function() {
+            // 初始化Supabase客户端
+            try {
+                // 确保supabase对象存在
+                if (typeof window.supabase !== 'undefined') {
+                    supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+                    console.log('Supabase客户端初始化成功');
+                } else {
+                    console.error('Supabase对象不存在，请检查脚本是否正确加载');
+                }
+            } catch (error) {
+                console.error('Supabase客户端初始化失败:', error);
+            }
+
             // 初始化DOM元素
             modal = document.getElementById('time-picker-modal');
             hourColumn = document.getElementById('hour-column');
@@ -1569,6 +1762,15 @@
 
             // 每秒更新一次
             setInterval(updateCountdown, 1000);
+
+            // 显示同步码提示（仅首次使用时）
+            const hasShownSyncTip = localStorage.getItem('bedtimeSyncTipShown');
+            if (!hasShownSyncTip) {
+                setTimeout(() => {
+                    alert(`您的备忘录现在支持跨设备同步！\n\n您的同步码是: ${getSyncCode()}\n\n请记住这个同步码，您可以在其他设备上使用它来同步备忘录内容。\n\n提示: 双击备忘录区域可以随时查看您的同步码。\n在其他设备上，按Ctrl+Shift+S可以输入同步码。`);
+                    localStorage.setItem('bedtimeSyncTipShown', 'true');
+                }, 2000);
+            }
         };
     </script>
 
