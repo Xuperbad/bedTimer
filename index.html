@@ -12,6 +12,14 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
+        /* 禁用文本选择，但在输入框和文本区域中允许 */
+        input, textarea {
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+        }
+
         body {
             background-color: #f8f9fa;
             display: flex;
@@ -19,6 +27,10 @@
             align-items: center;
             min-height: 100vh;
             color: #333;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         .container {
@@ -173,6 +185,217 @@
             background-color: rgba(240, 240, 240, 0.7);
         }
 
+        /* 应用桌面样式 */
+        .app-drawer-container {
+            position: fixed;
+            top: 0;
+            left: 100%; /* 从右侧开始 */
+            width: 100%;
+            height: 100%;
+            background-color: #f8f9fa;
+            transition: all 0.4s ease;
+            z-index: 900;
+            overflow-y: auto;
+            padding: 20px;
+            opacity: 0; /* 初始透明 */
+        }
+
+        .app-drawer-container.active {
+            transform: translateX(-100%); /* 向左移动100% */
+            opacity: 1; /* 完全不透明 */
+        }
+
+        /* 主容器动画效果 */
+        .container {
+            transition: all 0.4s ease;
+        }
+
+        .container.drawer-active {
+            transform: translateX(-30%); /* 主界面左移 */
+            opacity: 0.3; /* 降低不透明度 */
+        }
+
+        .app-drawer-header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .app-drawer-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #37474f;
+            cursor: pointer;
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 20px;
+            padding: 10px 0;
+        }
+
+        .app-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #37474f;
+        }
+
+        .app-icon {
+            width: 64px;
+            height: 64px;
+            background-color: #e0e0e0;
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 24px;
+            color: #37474f;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .app-icon:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .app-name {
+            font-size: 14px;
+            text-align: center;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .add-app-button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 64px;
+            height: 64px;
+            background-color: #e0e0e0;
+            border-radius: 16px;
+            font-size: 32px;
+            color: #37474f;
+            cursor: pointer;
+            border: 2px dashed #b0b0b0;
+            transition: background-color 0.2s ease;
+        }
+
+        .add-app-button:hover {
+            background-color: #d0d0d0;
+        }
+
+        /* 应用编辑弹窗 */
+        .app-edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .app-edit-content {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .app-edit-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #37474f;
+        }
+
+        .app-edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            color: #37474f;
+        }
+
+        .form-group input {
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #37474f;
+        }
+
+        .app-edit-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .app-edit-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .save-button {
+            background-color: #37474f;
+            color: white;
+        }
+
+        .save-button:hover {
+            background-color: #455a64;
+        }
+
+        .cancel-button {
+            background-color: #f0f0f0;
+            color: #37474f;
+        }
+
+        .cancel-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        .delete-button {
+            background-color: #f44336;
+            color: white;
+            margin-right: auto;
+        }
+
+        .delete-button:hover {
+            background-color: #e53935;
+        }
+
         /* 响应式设计 */
         @media (max-width: 500px) {
             .countdown-card {
@@ -196,6 +419,22 @@
                 height: 120px;
                 font-size: 16px; /* 保持标准阅读字体大小 */
                 padding: 10px;
+            }
+
+            .app-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+                gap: 15px;
+            }
+
+            .app-icon {
+                width: 56px;
+                height: 56px;
+                font-size: 20px;
+            }
+
+            .app-name {
+                font-size: 12px;
+                max-width: 80px;
             }
         }
     </style>
@@ -225,6 +464,46 @@
         <!-- 极简备忘录 -->
         <div class="memo-container">
             <textarea id="memo-text" spellcheck="false"></textarea>
+        </div>
+    </div>
+
+    <!-- 应用桌面抽屉 -->
+    <div class="app-drawer-container" id="app-drawer">
+        <div class="app-drawer-header">
+            <button class="app-drawer-close" id="app-drawer-close">×</button>
+        </div>
+        <div class="app-grid" id="app-grid">
+            <!-- 应用图标将通过JS动态生成 -->
+            <div class="app-item" id="add-app">
+                <div class="add-app-button">+</div>
+                <div class="app-name">添加应用</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 应用编辑弹窗 -->
+    <div class="app-edit-modal" id="app-edit-modal">
+        <div class="app-edit-content">
+            <div class="app-edit-title" id="app-edit-title">添加应用</div>
+            <div class="app-edit-form">
+                <div class="form-group">
+                    <label for="app-name-input">应用名称</label>
+                    <input type="text" id="app-name-input" placeholder="输入应用名称">
+                </div>
+                <div class="form-group">
+                    <label for="app-url-input">网址</label>
+                    <input type="url" id="app-url-input" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label for="app-icon-input">图标 (可选，使用字母或Emoji)</label>
+                    <input type="text" id="app-icon-input" placeholder="例如: G, 📝, 🎮" maxlength="2">
+                </div>
+            </div>
+            <div class="app-edit-buttons">
+                <button class="app-edit-button delete-button" id="delete-app-button" style="display: none;">删除</button>
+                <button class="app-edit-button cancel-button" id="cancel-app-button">取消</button>
+                <button class="app-edit-button save-button" id="save-app-button">保存</button>
+            </div>
         </div>
     </div>
 
@@ -432,6 +711,355 @@
             localStorage.setItem('bedtimeMemo', memoText.value);
         }
 
+        // 应用桌面功能
+        let appDrawer, appGrid, addAppButton;
+        let appEditModal, appNameInput, appUrlInput, appIconInput;
+        let saveAppButton, cancelAppButton, deleteAppButton, appEditTitle;
+        let currentEditingAppId = null;
+        let apps = [];
+
+        // 初始化应用桌面
+        function initAppDrawer() {
+            appDrawer = document.getElementById('app-drawer');
+            appGrid = document.getElementById('app-grid');
+            addAppButton = document.getElementById('add-app');
+
+            // 关闭应用抽屉按钮
+            const closeButton = document.getElementById('app-drawer-close');
+            closeButton.addEventListener('click', closeAppDrawer);
+
+            // 添加应用按钮
+            addAppButton.addEventListener('click', () => openAppEditModal());
+
+            // 加载保存的应用
+            loadApps();
+            renderApps();
+
+            // 添加滑动手势检测
+            initSwipeDetection();
+        }
+
+        // 初始化应用编辑弹窗
+        function initAppEditModal() {
+            appEditModal = document.getElementById('app-edit-modal');
+            appNameInput = document.getElementById('app-name-input');
+            appUrlInput = document.getElementById('app-url-input');
+            appIconInput = document.getElementById('app-icon-input');
+            saveAppButton = document.getElementById('save-app-button');
+            cancelAppButton = document.getElementById('cancel-app-button');
+            deleteAppButton = document.getElementById('delete-app-button');
+            appEditTitle = document.getElementById('app-edit-title');
+
+            // 设置按钮事件
+            saveAppButton.addEventListener('click', saveApp);
+            cancelAppButton.addEventListener('click', closeAppEditModal);
+            deleteAppButton.addEventListener('click', deleteApp);
+        }
+
+        // 打开应用编辑弹窗
+        function openAppEditModal(appId = null) {
+            currentEditingAppId = appId;
+
+            if (appId) {
+                // 编辑现有应用
+                const app = apps.find(a => a.id === appId);
+                if (app) {
+                    appNameInput.value = app.name;
+                    appUrlInput.value = app.url;
+                    appIconInput.value = app.icon || '';
+                    appEditTitle.textContent = '编辑应用';
+                    deleteAppButton.style.display = 'block';
+                }
+            } else {
+                // 添加新应用
+                appNameInput.value = '';
+                appUrlInput.value = '';
+                appIconInput.value = '';
+                appEditTitle.textContent = '添加应用';
+                deleteAppButton.style.display = 'none';
+            }
+
+            appEditModal.style.display = 'flex';
+        }
+
+        // 关闭应用编辑弹窗
+        function closeAppEditModal() {
+            appEditModal.style.display = 'none';
+            currentEditingAppId = null;
+        }
+
+        // 保存应用
+        function saveApp() {
+            const name = appNameInput.value.trim();
+            const url = appUrlInput.value.trim();
+            const icon = appIconInput.value.trim();
+
+            if (!name) {
+                alert('请输入应用名称');
+                return;
+            }
+
+            if (!url) {
+                alert('请输入网址');
+                return;
+            }
+
+            // 验证URL格式
+            try {
+                new URL(url);
+            } catch (e) {
+                alert('请输入有效的网址，包含http://或https://');
+                return;
+            }
+
+            if (currentEditingAppId) {
+                // 更新现有应用
+                const index = apps.findIndex(a => a.id === currentEditingAppId);
+                if (index !== -1) {
+                    apps[index] = {
+                        ...apps[index],
+                        name,
+                        url,
+                        icon
+                    };
+                }
+            } else {
+                // 添加新应用
+                const newApp = {
+                    id: Date.now().toString(),
+                    name,
+                    url,
+                    icon,
+                    createdAt: new Date().toISOString()
+                };
+                apps.push(newApp);
+            }
+
+            // 保存并重新渲染
+            saveApps();
+            renderApps();
+            closeAppEditModal();
+        }
+
+        // 删除应用
+        function deleteApp() {
+            if (!currentEditingAppId) return;
+
+            const confirmed = confirm('确定要删除这个应用吗？');
+            if (!confirmed) return;
+
+            apps = apps.filter(a => a.id !== currentEditingAppId);
+            saveApps();
+            renderApps();
+            closeAppEditModal();
+        }
+
+        // 渲染应用列表
+        function renderApps() {
+            // 清除现有应用（保留添加按钮）
+            while (appGrid.firstChild && appGrid.firstChild.id !== 'add-app') {
+                appGrid.removeChild(appGrid.firstChild);
+            }
+
+            // 添加应用图标
+            apps.forEach(app => {
+                const appItem = document.createElement('div');
+                appItem.className = 'app-item';
+                appItem.dataset.id = app.id;
+
+                const appIcon = document.createElement('div');
+                appIcon.className = 'app-icon';
+                appIcon.textContent = app.icon || app.name.charAt(0).toUpperCase();
+
+                const appName = document.createElement('div');
+                appName.className = 'app-name';
+                appName.textContent = app.name;
+
+                appItem.appendChild(appIcon);
+                appItem.appendChild(appName);
+
+                // 点击打开网址
+                appItem.addEventListener('click', (e) => {
+                    if (e.shiftKey || e.ctrlKey) {
+                        // 编辑模式（按住Shift或Ctrl键点击）
+                        openAppEditModal(app.id);
+                    } else {
+                        // 正常点击打开网址
+                        window.open(app.url, '_blank');
+                    }
+                });
+
+                // 长按进入编辑模式
+                let pressTimer;
+                appItem.addEventListener('touchstart', () => {
+                    pressTimer = setTimeout(() => {
+                        openAppEditModal(app.id);
+                    }, 800);
+                });
+                appItem.addEventListener('touchend', () => {
+                    clearTimeout(pressTimer);
+                });
+
+                // 将应用添加到网格中（在添加按钮之前）
+                appGrid.insertBefore(appItem, addAppButton);
+            });
+        }
+
+        // 从本地存储加载应用
+        function loadApps() {
+            const savedApps = localStorage.getItem('bedtimeApps');
+            if (savedApps) {
+                try {
+                    apps = JSON.parse(savedApps);
+                } catch (e) {
+                    console.error("加载应用时出错:", e);
+                    apps = [];
+                }
+            }
+        }
+
+        // 保存应用到本地存储
+        function saveApps() {
+            try {
+                localStorage.setItem('bedtimeApps', JSON.stringify(apps));
+            } catch (e) {
+                console.error("保存应用时出错:", e);
+                alert("保存应用失败: " + e.message);
+            }
+        }
+
+        // 获取主容器元素
+        let mainContainer;
+
+        // 打开应用抽屉
+        function openAppDrawer() {
+            console.log('Opening app drawer');
+            appDrawer.classList.add('active');
+            mainContainer.classList.add('drawer-active');
+        }
+
+        // 关闭应用抽屉
+        function closeAppDrawer() {
+            console.log('Closing app drawer');
+            appDrawer.classList.remove('active');
+            mainContainer.classList.remove('drawer-active');
+        }
+
+        // 添加一个全局快捷键来打开/关闭应用抽屉（用于测试）
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'a') { // 按 'a' 键打开应用抽屉
+                if (!appDrawer.classList.contains('active')) {
+                    openAppDrawer();
+                } else {
+                    closeAppDrawer();
+                }
+            }
+        });
+
+        // 初始化滑动检测
+        function initSwipeDetection() {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            const minSwipeDistance = 50; // 最小滑动距离
+
+            // 主界面滑动检测 - 使用body元素而不是document
+            document.body.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+                console.log('Touch start:', touchStartX);
+            }, { passive: true });
+
+            document.body.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                console.log('Touch end:', touchEndX);
+                handleSwipe();
+            }, { passive: true });
+
+            // 添加鼠标事件支持（用于桌面测试）
+            let mouseStartX = 0;
+            let isMouseDown = false;
+            let isDragging = false;
+
+            document.body.addEventListener('mousedown', (e) => {
+                // 如果是点击按钮或输入框，不处理
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                isMouseDown = true;
+                mouseStartX = e.clientX;
+                console.log('Mouse down:', mouseStartX);
+
+                // 阻止默认行为，防止文本选择
+                e.preventDefault();
+            });
+
+            document.body.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+
+                // 如果移动超过10px，认为是拖动而不是点击
+                if (Math.abs(e.clientX - mouseStartX) > 10) {
+                    isDragging = true;
+                }
+
+                // 阻止默认行为，防止文本选择
+                e.preventDefault();
+            });
+
+            document.body.addEventListener('mouseup', (e) => {
+                if (!isMouseDown) return;
+
+                const mouseEndX = e.clientX;
+                console.log('Mouse up:', mouseEndX);
+                const swipeDistance = mouseEndX - mouseStartX;
+
+                // 只有在拖动状态下才处理滑动
+                if (isDragging) {
+                    // 向左滑动打开应用抽屉
+                    if (swipeDistance < -minSwipeDistance && !appDrawer.classList.contains('active')) {
+                        openAppDrawer();
+                    }
+
+                    // 向右滑动关闭应用抽屉
+                    if (swipeDistance > minSwipeDistance && appDrawer.classList.contains('active')) {
+                        closeAppDrawer();
+                    }
+
+                    // 阻止默认行为，防止文本选择
+                    e.preventDefault();
+                }
+
+                // 重置状态
+                isMouseDown = false;
+                isDragging = false;
+            });
+
+            // 如果鼠标离开页面，也重置状态
+            document.body.addEventListener('mouseleave', () => {
+                isMouseDown = false;
+                isDragging = false;
+            });
+
+            // 处理触摸滑动
+            function handleSwipe() {
+                const swipeDistance = touchEndX - touchStartX;
+                console.log('Swipe distance:', swipeDistance);
+
+                // 向左滑动打开应用抽屉
+                if (swipeDistance < -minSwipeDistance && !appDrawer.classList.contains('active')) {
+                    console.log('Opening app drawer');
+                    openAppDrawer();
+                }
+
+                // 向右滑动关闭应用抽屉
+                if (swipeDistance > minSwipeDistance && appDrawer.classList.contains('active')) {
+                    console.log('Closing app drawer');
+                    closeAppDrawer();
+                }
+            }
+
+            // 不再添加测试按钮
+        }
+
         // 页面加载完成后初始化
         window.onload = function() {
             // 初始化DOM元素
@@ -441,6 +1069,7 @@
             confirmButton = document.getElementById('confirm-button');
             cancelButton = document.getElementById('cancel-button');
             countdownDisplay = document.getElementById('countdown-display');
+            mainContainer = document.querySelector('.container'); // 初始化主容器元素
 
             // 加载设置
             loadSettings();
@@ -450,6 +1079,10 @@
 
             // 初始化备忘录
             initMemo();
+
+            // 初始化应用桌面
+            initAppDrawer();
+            initAppEditModal();
 
             // 初始更新
             updateCountdown();
