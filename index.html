@@ -740,6 +740,26 @@
             // 添加事件监听器，自动保存
             memoText.addEventListener('input', saveMemo);
 
+            // 添加失去焦点事件，触发同步
+            memoText.addEventListener('blur', async function() {
+                // 触发一次同步操作
+                if (memoText.value.trim() !== '') {
+                    try {
+                        await saveMemoToSupabase(syncCode, memoText.value);
+                    } catch (error) {
+                        console.error('同步失败:', error);
+                    }
+                }
+            });
+
+            // 添加点击文档其他区域时，让备忘录失去焦点
+            document.addEventListener('click', function(e) {
+                // 如果点击的不是备忘录区域，且备忘录当前有焦点
+                if (!memoText.contains(e.target) && document.activeElement === memoText) {
+                    memoText.blur(); // 让备忘录失去焦点
+                }
+            });
+
             // 设置定期检查更新的定时器
             syncCheckInterval = setInterval(checkForMemoUpdates, 30000); // 每30秒检查一次
 
