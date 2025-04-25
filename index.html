@@ -899,13 +899,58 @@
         function initSyncCodeClick() {
             const poweredBy = document.getElementById('powered-by');
             if (poweredBy && !poweredBy.hasClickListener) {
-                poweredBy.addEventListener('click', function() {
-                    const newCode = prompt(`当前同步码: ${syncCode}\n\n请输入新的同步码以从其他设备同步备忘录内容:`, syncCode);
-                    if (newCode) {
-                        if (setSyncCode(newCode)) {
-                            alert(`同步码已设置为: ${newCode}\n正在尝试同步...`);
-                        } else {
-                            alert('同步码无效，请重试。');
+                poweredBy.addEventListener('click', async function() {
+                    // 检查是否在限制时间内
+                    const lastChangeTime = localStorage.getItem('bedtimeSyncCodeLastChange');
+                    const now = new Date().getTime();
+
+                    if (lastChangeTime && (now - parseInt(lastChangeTime)) < 3600000) { // 1小时内限制更改
+                        const minutesLeft = Math.ceil((3600000 - (now - parseInt(lastChangeTime))) / 60000);
+                        if (syncCode !== prompt(`当前同步码: ${syncCode}\n\n您最近已经更改过同步码，请等待${minutesLeft}分钟后再次更改。\n\n如果您只想使用现有同步码，请直接点击确定:`, syncCode)) {
+                            alert('为防止数据库垃圾信息，请稍后再尝试更改同步码。');
+                            return;
+                        }
+                    } else {
+                        // 可以更改同步码
+                        const newCode = prompt(`当前同步码: ${syncCode}\n\n请输入新的同步码以从其他设备同步备忘录内容:`, syncCode);
+                        if (newCode && newCode !== syncCode) {
+                            // 检查新同步码是否已存在数据
+                            try {
+                                const { data } = await supabase
+                                    .from('memo_sync')
+                                    .select('content')
+                                    .eq('sync_code', newCode)
+                                    .single();
+
+                                if (data) {
+                                    // 同步码已存在数据
+                                    const confirmOverwrite = confirm(`同步码"${newCode}"已存在数据。\n\n继续操作将加载该同步码的数据，并覆盖当前的备忘录内容。\n\n是否继续？`);
+                                    if (!confirmOverwrite) {
+                                        return;
+                                    }
+                                } else {
+                                    // 同步码不存在数据，将创建新记录
+                                    const confirmCreate = confirm(`同步码"${newCode}"不存在数据。\n\n继续操作将创建新的同步记录，并将当前备忘录内容保存到该同步码下。\n\n是否继续？`);
+                                    if (!confirmCreate) {
+                                        return;
+                                    }
+                                }
+                            } catch (error) {
+                                // 同步码不存在数据，将创建新记录
+                                const confirmCreate = confirm(`同步码"${newCode}"不存在数据。\n\n继续操作将创建新的同步记录，并将当前备忘录内容保存到该同步码下。\n\n是否继续？`);
+                                if (!confirmCreate) {
+                                    return;
+                                }
+                            }
+
+                            // 设置新的同步码
+                            if (setSyncCode(newCode)) {
+                                // 记录更改时间
+                                localStorage.setItem('bedtimeSyncCodeLastChange', now.toString());
+                                alert(`同步码已设置为: ${newCode}\n正在尝试同步...`);
+                            } else {
+                                alert('同步码无效，请重试。');
+                            }
                         }
                     }
                 });
