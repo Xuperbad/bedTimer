@@ -833,6 +833,24 @@
                         updateCountdown();
                     }
 
+                    // 加载应用列表（无论是否更新内容）
+                    if (data.apps_data) {
+                        try {
+                            // 更新本地存储
+                            localStorage.setItem('bedtimeApps', data.apps_data);
+
+                            // 更新全局变量
+                            apps = JSON.parse(data.apps_data);
+
+                            // 重新渲染应用列表
+                            if (appGrid) {
+                                renderApps();
+                            }
+                        } catch (error) {
+                            console.error('解析应用数据失败:', error);
+                        }
+                    }
+
                     lastSyncTime = new Date();
                     return true;
                 }
@@ -887,7 +905,7 @@
         async function fetchMemoFromSupabase(syncCode) {
             const { data, error } = await supabase
                 .from('memo_sync')
-                .select('content, updated_at, bedtime_hour, bedtime_minute')
+                .select('content, updated_at, bedtime_hour, bedtime_minute, apps_data')
                 .eq('sync_code', syncCode)
                 .single();
 
@@ -900,7 +918,7 @@
         }
 
         // 保存备忘录内容到Supabase
-        async function saveMemoToSupabase(syncCode, content, bedtimeData = null) {
+        async function saveMemoToSupabase(syncCode, content, bedtimeData = null, appsData = null) {
             // 准备要保存的数据
             const saveData = {
                 sync_code: syncCode,
@@ -919,6 +937,17 @@
                 if (savedHour !== null && savedMinute !== null) {
                     saveData.bedtime_hour = parseInt(savedHour);
                     saveData.bedtime_minute = parseInt(savedMinute);
+                }
+            }
+
+            // 如果有应用数据，添加到保存数据中
+            if (appsData) {
+                saveData.apps_data = JSON.stringify(appsData);
+            } else {
+                // 如果没有提供应用数据，但本地有保存的应用数据，也一并同步
+                const savedApps = localStorage.getItem('bedtimeApps');
+                if (savedApps) {
+                    saveData.apps_data = savedApps; // 已经是JSON字符串
                 }
             }
 
@@ -1123,7 +1152,7 @@
         }
 
         // 保存应用
-        function saveApp() {
+        async function saveApp() {
             const name = appNameInput.value.trim();
             const url = appUrlInput.value.trim();
             const icon = appIconInput.value.trim();
@@ -1170,20 +1199,20 @@
             }
 
             // 保存并重新渲染
-            saveApps();
+            await saveApps();
             renderApps();
             closeAppEditModal();
         }
 
         // 删除应用
-        function deleteApp() {
+        async function deleteApp() {
             if (!currentEditingAppId) return;
 
             const confirmed = confirm('确定要删除这个应用吗？');
             if (!confirmed) return;
 
             apps = apps.filter(a => a.id !== currentEditingAppId);
-            saveApps();
+            await saveApps();
             renderApps();
             closeAppEditModal();
         }
@@ -1578,9 +1607,23 @@
         }
 
         // 保存应用到本地存储
-        function saveApps() {
+        async function saveApps() {
             try {
+                // 保存到本地存储
                 localStorage.setItem('bedtimeApps', JSON.stringify(apps));
+
+                // 同步到Supabase
+                if (syncCode) {
+                    try {
+                        // 获取当前备忘录内容
+                        const memoContent = memoText ? memoText.value : localStorage.getItem('bedtimeMemo') || '';
+
+                        // 静默同步到Supabase
+                        await saveMemoToSupabase(syncCode, memoContent, null, apps);
+                    } catch (error) {
+                        console.error('同步应用列表失败:', error);
+                    }
+                }
             } catch (e) {
                 console.error("保存应用时出错:", e);
                 alert("保存应用失败: " + e.message);
