@@ -643,11 +643,24 @@
         }
 
         // 确认时间选择
-        function confirmTimeSelection() {
+        async function confirmTimeSelection() {
             targetHour = selectedHour;
             targetMinute = selectedMinute;
             saveSettings();
             closeTimePicker();
+
+            // 同步就寝时间到Supabase
+            if (syncCode) {
+                try {
+                    // 获取当前备忘录内容
+                    const memoContent = memoText ? memoText.value : localStorage.getItem('bedtimeMemo') || '';
+
+                    // 静默同步到Supabase
+                    await saveMemoToSupabase(syncCode, memoContent, { hour: targetHour, minute: targetMinute });
+                } catch (error) {
+                    console.error('同步就寝时间失败:', error);
+                }
+            }
         }
 
         // 从本地存储加载设置（如果有）
@@ -794,16 +807,30 @@
         async function loadMemoFromSupabase() {
             try {
                 const data = await fetchMemoFromSupabase(syncCode);
-                if (data && data.content) {
+                if (data) {
                     // 比较本地和远程的更新时间
                     const localLastUpdate = localStorage.getItem('bedtimeLastUpdate');
+                    const shouldUpdate = !localLastUpdate || new Date(data.updated_at) > new Date(localLastUpdate);
 
-                    if (!localLastUpdate || new Date(data.updated_at) > new Date(localLastUpdate)) {
+                    if (shouldUpdate && data.content) {
                         memoText.value = data.content;
                         localStorage.setItem('bedtimeMemo', data.content);
                         localStorage.setItem('bedtimeLastUpdate', data.updated_at);
                         lastLocalUpdate = data.updated_at;
+                    }
 
+                    // 加载就寝时间设置（无论是否更新内容）
+                    if (data.bedtime_hour !== null && data.bedtime_minute !== null) {
+                        // 更新本地存储
+                        localStorage.setItem('bedtimeHour', data.bedtime_hour);
+                        localStorage.setItem('bedtimeMinute', data.bedtime_minute);
+
+                        // 更新全局变量
+                        bedtimeHour = data.bedtime_hour;
+                        bedtimeMinute = data.bedtime_minute;
+
+                        // 更新倒计时显示
+                        updateCountdown();
                     }
 
                     lastSyncTime = new Date();
@@ -860,7 +887,7 @@
         async function fetchMemoFromSupabase(syncCode) {
             const { data, error } = await supabase
                 .from('memo_sync')
-                .select('content, updated_at')
+                .select('content, updated_at, bedtime_hour, bedtime_minute')
                 .eq('sync_code', syncCode)
                 .single();
 
@@ -873,14 +900,31 @@
         }
 
         // 保存备忘录内容到Supabase
-        async function saveMemoToSupabase(syncCode, content) {
+        async function saveMemoToSupabase(syncCode, content, bedtimeData = null) {
+            // 准备要保存的数据
+            const saveData = {
+                sync_code: syncCode,
+                content: content,
+                updated_at: new Date().toISOString()
+            };
+
+            // 如果有就寝时间数据，添加到保存数据中
+            if (bedtimeData) {
+                saveData.bedtime_hour = bedtimeData.hour;
+                saveData.bedtime_minute = bedtimeData.minute;
+            } else {
+                // 如果没有提供就寝时间数据，但本地有保存的就寝时间，也一并同步
+                const savedHour = localStorage.getItem('bedtimeHour');
+                const savedMinute = localStorage.getItem('bedtimeMinute');
+                if (savedHour !== null && savedMinute !== null) {
+                    saveData.bedtime_hour = parseInt(savedHour);
+                    saveData.bedtime_minute = parseInt(savedMinute);
+                }
+            }
+
             const { error } = await supabase
                 .from('memo_sync')
-                .upsert({
-                    sync_code: syncCode,
-                    content: content,
-                    updated_at: new Date().toISOString()
-                });
+                .upsert(saveData);
 
             if (error) {
                 console.error('保存备忘录到Supabase时出错:', error);
